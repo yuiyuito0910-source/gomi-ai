@@ -9,15 +9,87 @@
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
 <style>
-body { font-family: Arial, sans-serif; text-align: center; background: #f2f5f7; margin: 20px; }
-h1 { margin-bottom: 5px; color: #2c3e50; }
-.subtitle { margin-bottom: 20px; color: #555; }
-video, img { width: 90%; max-width: 320px; border-radius: 15px; margin-top: 10px; background: black; }
-button { padding: 10px 15px; margin: 8px; border-radius: 10px; border: none; background: #27ae60; color: white; font-size: 15px; cursor: pointer; }
-button:hover { background: #1e8449; }
-.result-box { margin-top: 20px; padding: 15px; background: white; border-radius: 15px; width: 90%; max-width: 350px; display: inline-block; }
-.progress { width: 100%; background: #ddd; border-radius: 10px; margin-top: 10px; }
-.progress-bar { height: 12px; width: 0%; background: #27ae60; border-radius: 10px; }
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #f2f5f7;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.subtitle {
+  margin-bottom: 20px;
+  color: #555;
+}
+
+video, img {
+  width: 100%;       /* 画面幅に合わせる */
+  max-width: 400px;  /* 最大幅 */
+  height: auto;
+  border-radius: 15px;
+  margin-top: 10px;
+  background: black;
+}
+
+button {
+  width: 90%;        /* 横幅いっぱいに */
+  max-width: 350px;
+  padding: 14px;
+  margin: 10px 0;
+  border-radius: 10px;
+  border: none;
+  background: #27ae60;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1e8449;
+}
+
+.result-box {
+  margin-top: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.progress {
+  width: 100%;
+  background: #ddd;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  height: 14px;
+  width: 0%;
+  background: #27ae60;
+  border-radius: 10px;
+  transition: width 0.5s ease; /* 信頼度バーアニメーション */
+}
+
+#result {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+#advice {
+  font-size: 16px;
+  color: #333;
+  margin-top: 5px;
+}
 </style>
 </head>
 <body>
@@ -42,9 +114,7 @@ button:hover { background: #1e8449; }
 </div>
 
 <script>
-
-// 🔹 GitHub Pages 上のモデルの絶対パス
-const URL_PATH = "https://yuiyuito0910-source.github.io/gomi-ai/"; 
+const URL_PATH = "https://yuiyuito0910-source.github.io/gomi-ai/";
 
 let model;
 let cameraOn = false;
@@ -143,7 +213,6 @@ function takePhoto() {
   img.src = canvas.toDataURL("image/png");
   img.onload = function() { predict(img); };
 }
-
 </script>
 
 </body>

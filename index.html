@@ -2,116 +2,145 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>家庭向けごみ分別AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GomiVision | ごみ分別AI</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   text-align: center;
-  background: #f4f6f8;
-  margin: 30px;
+  background: #f2f5f7;
+  margin: 20px;
 }
 
 h1 {
   color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: #555;
+  margin-bottom: 20px;
 }
 
 video, img {
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  margin-top: 15px;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 300px;
+  margin-top: 10px;
   background: black;
 }
 
 button {
-  padding: 10px 20px;
+  padding: 10px 18px;
   margin: 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
-  background: #3498db;
+  background: #27ae60;
   color: white;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
 }
 
 button:hover {
-  background: #2980b9;
+  background: #1e8449;
 }
 
 .result-box {
   margin-top: 20px;
   padding: 15px;
   background: white;
-  border-radius: 10px;
+  border-radius: 15px;
   display: inline-block;
-  text-align: left;
-  white-space: pre-line;
+  width: 90%;
+  max-width: 350px;
+}
+
+.progress {
+  width: 100%;
+  background: #ddd;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  height: 12px;
+  width: 0%;
+  background: #27ae60;
+  border-radius: 10px;
 }
 </style>
 </head>
 <body>
 
-<h1>家庭向けごみ分別AI 📸</h1>
+<h1>♻ GomiVision</h1>
+<div class="subtitle">スマホで撮るだけ ごみ分別AI</div>
 
-<input type="file" id="imageInput" accept="image/*"><br><br>
+<input type="file" id="imageInput" accept="image/*"><br>
 
-<video id="camera" width="224" height="224" autoplay></video><br>
+<video id="camera" autoplay playsinline></video><br>
 <button onclick="toggleCamera()" id="cameraBtn">カメラON</button>
-<button onclick="takePhoto()">撮影する</button>
+<button onclick="takePhoto()">撮影</button>
 
-<br><br>
-<img id="preview" width="224" height="224">
+<img id="preview">
 
-<div class="result-box" id="result">モデル読み込み中...</div>
+<div class="result-box">
+  <div id="result">モデル読み込み中...</div>
+  <div class="progress">
+    <div class="progress-bar" id="confidenceBar"></div>
+  </div>
+  <div id="advice"></div>
+</div>
 
 <script>
 
 const URL = "./";
 
 let model;
-let stream = null;
 let cameraOn = false;
+let stream = null;
 
-// ⭐ モデル読み込み
+const recycleTips = {
+  "プラスチック": "洗ってから可燃ごみへ。",
+  "缶": "中を洗って資源ごみへ。",
+  "ペットボトル": "ラベルとキャップを外して資源ごみへ。",
+  "紙": "汚れがなければ古紙回収へ。",
+  "不燃物": "市町村指定の不燃ごみへ。"
+};
+
 async function init() {
-  const modelURL = URL + "model.json";
-  const metadataURL = URL + "metadata.json";
-
-  model = await tmImage.load(modelURL, metadataURL);
-
-  document.getElementById("result").innerText =
-    "モデル読み込み完了！";
+  model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+  document.getElementById("result").innerText = "準備完了！画像を入れてください。";
 }
-
 init();
 
-// ⭐ 予測
-async function predict(imgElement) {
-  const prediction = await model.predict(imgElement);
+async function predict(img) {
+  const prediction = await model.predict(img);
 
   let highest = prediction[0];
-
   for (let i = 1; i < prediction.length; i++) {
     if (prediction[i].probability > highest.probability) {
       highest = prediction[i];
     }
   }
 
-  if (highest.probability < 0.6) {
-    document.getElementById("result").innerText =
-      "⚠ 判定が不確実です\n\n分類: 不明";
+  const confidence = highest.probability;
+
+  if (confidence < 0.6) {
+    document.getElementById("result").innerText = "⚠ 判定不明";
+    document.getElementById("confidenceBar").style.width = "0%";
+    document.getElementById("advice").innerText = "もう一度撮影してください。";
     return;
   }
 
-  document.getElementById("result").innerText =
-    "分類: " + highest.className +
-    "\n信頼度: " + (highest.probability * 100).toFixed(1) + "%";
+  document.getElementById("result").innerText = "分類: " + highest.className;
+  document.getElementById("confidenceBar").style.width = (confidence * 100) + "%";
+  document.getElementById("advice").innerText = recycleTips[highest.className] || "";
 }
 
-// ⭐ 画像アップロード
 document.getElementById("imageInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   const img = document.getElementById("preview");
@@ -120,7 +149,6 @@ document.getElementById("imageInput").addEventListener("change", async (e) => {
   predict(img);
 });
 
-// ⭐ カメラON/OFF
 async function toggleCamera() {
   const video = document.getElementById("camera");
   const button = document.getElementById("cameraBtn");
@@ -138,7 +166,6 @@ async function toggleCamera() {
   }
 }
 
-// ⭐ 撮影
 function takePhoto() {
   if (!cameraOn) return;
 
@@ -151,7 +178,6 @@ function takePhoto() {
 
   const img = document.getElementById("preview");
   img.src = canvas.toDataURL("image/png");
-
   predict(img);
 }
 

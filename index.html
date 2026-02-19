@@ -28,8 +28,8 @@ h1 {
 }
 
 video, img {
-  width: 100%;       /* 画面幅に合わせる */
-  max-width: 400px;  /* 最大幅 */
+  width: 100%;
+  max-width: 400px;
   height: auto;
   border-radius: 15px;
   margin-top: 10px;
@@ -37,7 +37,7 @@ video, img {
 }
 
 button {
-  width: 90%;        /* 横幅いっぱいに */
+  width: 90%;
   max-width: 350px;
   padding: 14px;
   margin: 10px 0;
@@ -76,7 +76,7 @@ button:hover {
   width: 0%;
   background: #27ae60;
   border-radius: 10px;
-  transition: width 0.5s ease; /* 信頼度バーアニメーション */
+  transition: width 0.5s ease;
 }
 
 #result {
@@ -101,6 +101,7 @@ button:hover {
 
 <video id="camera" autoplay playsinline></video><br>
 <button onclick="toggleCamera()" id="cameraBtn">カメラON</button>
+<button onclick="switchCamera()" id="switchBtn">カメラ切替</button>
 <button onclick="takePhoto()">撮影</button>
 
 <img id="preview">
@@ -119,6 +120,7 @@ const URL_PATH = "https://yuiyuito0910-source.github.io/gomi-ai/";
 let model;
 let cameraOn = false;
 let stream = null;
+let cameraFacing = "user"; // 初期は内カメラ
 
 const recycleTips = {
   "プラスチック": "洗ってから可燃ごみへ。",
@@ -186,7 +188,7 @@ async function toggleCamera() {
   const button = document.getElementById("cameraBtn");
 
   if (!cameraOn) {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing } });
     video.srcObject = stream;
     button.innerText = "カメラOFF";
     cameraOn = true;
@@ -196,6 +198,22 @@ async function toggleCamera() {
     button.innerText = "カメラON";
     cameraOn = false;
   }
+}
+
+// 🔄 カメラ切替
+async function switchCamera() {
+  if (!cameraOn) return;
+
+  // 現在のストリーム停止
+  stream.getTracks().forEach(track => track.stop());
+
+  // facingMode 切替
+  cameraFacing = cameraFacing === "user" ? "environment" : "user";
+
+  // 新しいカメラでストリーム取得
+  const video = document.getElementById("camera");
+  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing } });
+  video.srcObject = stream;
 }
 
 // 🔥 撮影

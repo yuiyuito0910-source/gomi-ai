@@ -15,17 +15,8 @@ body {
   background: #f2f5f7;
   margin: 20px;
 }
-
-h1 {
-  margin-bottom: 5px;
-  color: #2c3e50;
-}
-
-.subtitle {
-  margin-bottom: 20px;
-  color: #555;
-}
-
+h1 { margin-bottom: 5px; color: #2c3e50; }
+.subtitle { margin-bottom: 20px; color: #555; }
 video, img {
   width: 90%;
   max-width: 320px;
@@ -33,7 +24,6 @@ video, img {
   margin-top: 10px;
   background: black;
 }
-
 button {
   padding: 10px 15px;
   margin: 8px;
@@ -44,11 +34,7 @@ button {
   font-size: 15px;
   cursor: pointer;
 }
-
-button:hover {
-  background: #1e8449;
-}
-
+button:hover { background: #1e8449; }
 .result-box {
   margin-top: 20px;
   padding: 15px;
@@ -58,14 +44,12 @@ button:hover {
   max-width: 350px;
   display: inline-block;
 }
-
 .progress {
   width: 100%;
   background: #ddd;
   border-radius: 10px;
   margin-top: 10px;
 }
-
 .progress-bar {
   height: 12px;
   width: 0%;
@@ -97,7 +81,8 @@ button:hover {
 
 <script>
 
-const URL_PATH = "./";
+// 🔹 ここをあなたの GitHub Pages URL に置き換えてください
+const URL_PATH = "https://username.github.io/repo/"; // ← 例: "https://takeyou.github.io/gomivision/"
 
 let model;
 let cameraOn = false;
@@ -153,17 +138,14 @@ async function predict(img) {
     recycleTips[highest.className] || "";
 }
 
-// 🔥 画像アップロード（安定版）
+// 🔥 画像アップロード
 document.getElementById("imageInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const img = document.getElementById("preview");
 
-  img.onload = function() {
-    predict(img);
-  };
-
+  img.onload = function() { predict(img); };
   img.src = URL.createObjectURL(file);
 });
 
@@ -199,9 +181,7 @@ function takePhoto() {
   const img = document.getElementById("preview");
   img.src = canvas.toDataURL("image/png");
 
-  img.onload = function() {
-    predict(img);
-  };
+  img.onload = function() { predict(img); };
 }
 
 </script>

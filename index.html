@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>家庭向けごみ分別AI</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background: #f4f6f8;
+  margin: 30px;
+}
+
+h1 {
+  color: #2c3e50;
+}
+
+video, img {
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  margin-top: 15px;
+  background: black;
+}
+
+button {
+  padding: 10px 20px;
+  margin: 8px;
+  border-radius: 8px;
+  border: none;
+  background: #3498db;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2980b9;
+}
+
+.result-box {
+  margin-top: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 10px;
+  display: inline-block;
+  text-align: left;
+  white-space: pre-line;
+}
+</style>
+</head>
+<body>
+
+<h1>家庭向けごみ分別AI 📸</h1>
+
+<input type="file" id="imageInput" accept="image/*"><br><br>
+
+<video id="camera" width="224" height="224" autoplay></video><br>
+<button onclick="toggleCamera()" id="cameraBtn">カメラON</button>
+<button onclick="takePhoto()">撮影する</button>
+
+<br><br>
+<img id="preview" width="224" height="224">
+
+<div class="result-box" id="result">モデル読み込み中...</div>
+
+<script>
+
+const URL = "./";
+
+let model;
+let stream = null;
+let cameraOn = false;
+
+// ⭐ モデル読み込み
+async function init() {
+  const modelURL = URL + "model.json";
+  const metadataURL = URL + "metadata.json";
+
+  model = await tmImage.load(modelURL, metadataURL);
+
+  document.getElementById("result").innerText =
+    "モデル読み込み完了！";
+}
+
+init();
+
+// ⭐ 予測
+async function predict(imgElement) {
+  const prediction = await model.predict(imgElement);
+
+  let highest = prediction[0];
+
+  for (let i = 1; i < prediction.length; i++) {
+    if (prediction[i].probability > highest.probability) {
+      highest = prediction[i];
+    }
+  }
+
+  if (highest.probability < 0.6) {
+    document.getElementById("result").innerText =
+      "⚠ 判定が不確実です\n\n分類: 不明";
+    return;
+  }
+
+  document.getElementById("result").innerText =
+    "分類: " + highest.className +
+    "\n信頼度: " + (highest.probability * 100).toFixed(1) + "%";
+}
+
+// ⭐ 画像アップロード
+document.getElementById("imageInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  const img = document.getElementById("preview");
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+  predict(img);
+});
+
+// ⭐ カメラON/OFF
+async function toggleCamera() {
+  const video = document.getElementById("camera");
+  const button = document.getElementById("cameraBtn");
+
+  if (!cameraOn) {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    button.innerText = "カメラOFF";
+    cameraOn = true;
+  } else {
+    stream.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    button.innerText = "カメラON";
+    cameraOn = false;
+  }
+}
+
+// ⭐ 撮影
+function takePhoto() {
+  if (!cameraOn) return;
+
+  const video = document.getElementById("camera");
+  const canvas = document.createElement("canvas");
+  canvas.width = 224;
+  canvas.height = 224;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 224, 224);
+
+  const img = document.getElementById("preview");
+  img.src = canvas.toDataURL("image/png");
+
+  predict(img);
+}
+
+</script>
+
+</body>
+</html>

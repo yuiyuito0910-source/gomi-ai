@@ -112,3 +112,99 @@ const recycleTips = {
 };
 
 // 🔥 モデル読み込み
+async function init() {
+  try {
+    model = await tmImage.load(
+      URL_PATH + "model.json",
+      URL_PATH + "metadata.json"
+    );
+    document.getElementById("result").innerText = "準備完了！画像を選んでください。";
+  } catch (error) {
+    document.getElementById("result").innerText = "モデル読み込み失敗";
+    console.error(error);
+  }
+}
+
+init();
+
+// 🔥 予測処理
+async function predict(img) {
+  const prediction = await model.predict(img);
+
+  let highest = prediction[0];
+  for (let i = 1; i < prediction.length; i++) {
+    if (prediction[i].probability > highest.probability) {
+      highest = prediction[i];
+    }
+  }
+
+  const confidence = highest.probability;
+
+  if (confidence < 0.6) {
+    document.getElementById("result").innerText = "⚠ 判定不明";
+    document.getElementById("confidenceBar").style.width = "0%";
+    document.getElementById("advice").innerText = "もう一度撮影してください。";
+    return;
+  }
+
+  document.getElementById("result").innerText = "分類: " + highest.className;
+  document.getElementById("confidenceBar").style.width = (confidence * 100) + "%";
+  document.getElementById("advice").innerText =
+    recycleTips[highest.className] || "";
+}
+
+// 🔥 画像アップロード（安定版）
+document.getElementById("imageInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const img = document.getElementById("preview");
+
+  img.onload = function() {
+    predict(img);
+  };
+
+  img.src = URL.createObjectURL(file);
+});
+
+// 🔥 カメラON/OFF
+async function toggleCamera() {
+  const video = document.getElementById("camera");
+  const button = document.getElementById("cameraBtn");
+
+  if (!cameraOn) {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    button.innerText = "カメラOFF";
+    cameraOn = true;
+  } else {
+    stream.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    button.innerText = "カメラON";
+    cameraOn = false;
+  }
+}
+
+// 🔥 撮影
+function takePhoto() {
+  if (!cameraOn) return;
+
+  const video = document.getElementById("camera");
+  const canvas = document.createElement("canvas");
+  canvas.width = 224;
+  canvas.height = 224;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 224, 224);
+
+  const img = document.getElementById("preview");
+  img.src = canvas.toDataURL("image/png");
+
+  img.onload = function() {
+    predict(img);
+  };
+}
+
+</script>
+
+</body>
+</html>

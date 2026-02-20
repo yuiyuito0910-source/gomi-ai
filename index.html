@@ -5,134 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GomiVision | ごみ分別AI</title>
 
+<!-- TensorFlow.js & Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-firestore.js";
+  import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-storage.js";
+
+  // Firebase 設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPzh1PUGiT3ydeValzdoAjI1_-qnFbiRY",
+    authDomain: "gomivisioncloud.firebaseapp.com",
+    projectId: "gomivisioncloud",
+    storageBucket: "gomivisioncloud.firebasestorage.app",
+    messagingSenderId: "1031788205291",
+    appId: "1:1031788205291:web:1205b1ebfb10f2e5365aae"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  window.firebaseDB = db;
+  window.firebaseStorage = storage;
+</script>
+
 <style>
-body {
-  font-family: 'Segoe UI', Arial, sans-serif;
-  text-align: center;
-  background: linear-gradient(135deg, #e0f7fa, #ffffff);
-  margin: 0;
-  padding: 20px;
-  color: #333;
-}
-
-h1 {
-  margin-bottom: 5px;
-  font-size: 28px;
-  color: #009688;
-}
-
-.subtitle {
-  margin-bottom: 20px;
-  font-size: 16px;
-  color: #555;
-}
-
-video, img {
-  width: 100%;
-  max-width: 400px;
-  height: auto;
-  border-radius: 20px;
-  margin-top: 15px;
-  background: #ccefff;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-button {
-  width: 90%;
-  max-width: 360px;
-  padding: 14px;
-  margin: 8px 0;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(45deg, #26a69a, #80cbc4);
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-  transition: 0.3s;
-}
-
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.3);
-}
-
-.result-box {
-  margin-top: 20px;
-  padding: 20px;
-  background: #ffffffcc;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.progress {
-  width: 100%;
-  background: #e0e0e0;
-  border-radius: 12px;
-  margin-top: 10px;
-}
-
-.progress-bar {
-  height: 16px;
-  width: 0%;
-  background: #26a69a;
-  border-radius: 12px;
-  transition: width 0.6s ease, background 0.6s ease;
-}
-
-#confidenceText {
-  margin-top: 5px;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-#advice {
-  font-size: 16px;
-  color: #555;
-  margin-top: 5px;
-  min-height: 20px;
-}
-
-/* 判定履歴 */
-#history {
-  margin-top: 20px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.history-card {
-  background: #f1fdfd;
-  padding: 10px;
-  margin: 5px 0;
-  border-radius: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.history-card img {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
-  margin-right: 8px;
-}
-
-.fixBtn {
-  background: #ff8a65;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 12px;
-}
+body { font-family:'Segoe UI',Arial,sans-serif; text-align:center; background: linear-gradient(135deg,#e0f7fa,#ffffff); margin:0; padding:20px; color:#333;}
+h1 { margin-bottom:5px; font-size:28px; color:#009688;}
+.subtitle { margin-bottom:20px; font-size:16px; color:#555;}
+video,img{width:100%;max-width:400px;height:auto;border-radius:20px;margin-top:15px;background:#ccefff;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+button{width:90%;max-width:360px;padding:14px;margin:8px 0;border-radius:12px;border:none;background:linear-gradient(45deg,#26a69a,#80cbc4);color:#fff;font-size:16px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.2);transition:0.3s;}
+button:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,0.3);}
+.result-box{margin-top:20px;padding:20px;background:#ffffffcc;border-radius:20px;width:90%;max-width:400px;margin-left:auto;margin-right:auto;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+.progress{width:100%;background:#e0e0e0;border-radius:12px;margin-top:10px;}
+.progress-bar{height:16px;width:0%;background:#26a69a;border-radius:12px;transition:width 0.6s ease, background 0.6s ease;}
+#confidenceText{margin-top:5px;font-size:14px;font-weight:bold;}
+#advice{font-size:16px;color:#555;margin-top:5px;min-height:20px;}
+#history{margin-top:20px;max-height:200px;overflow-y:auto;}
+.history-card{background:#f1fdfd;padding:10px;margin:5px 0;border-radius:12px;display:flex;justify-content:space-between;align-items:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+.history-card img{width:40px;height:40px;border-radius:8px;object-fit:cover;margin-right:8px;}
+.fixBtn{background:#ff8a65;padding:4px 8px;border-radius:8px;font-size:12px;}
 </style>
 </head>
 <body>
@@ -162,154 +78,107 @@ button:hover {
 <div id="history"></div>
 
 <script>
-const URL_PATH = "https://yuiyuito0910-source.github.io/gomi-ai/";
+const URL_PATH="https://yuiyuito0910-source.github.io/gomi-ai/";
+let model, cameraOn=false, stream=null, cameraFacing="user";
+let historyData=JSON.parse(localStorage.getItem('gomiHistory')||"[]");
 
-let model;
-let cameraOn = false;
-let stream = null;
-let cameraFacing = "user";
+const recycleTips={"プラスチック":"洗ってから可燃ごみへ。","缶":"中を洗って資源ごみへ。","ペットボトル":"ラベルとキャップを外して資源ごみへ。","紙":"汚れがなければ古紙回収へ。","不燃物":"市町村指定の不燃ごみへ。"};
 
-let historyData = JSON.parse(localStorage.getItem('gomiHistory') || "[]");
-
-const recycleTips = {
-  "プラスチック": "洗ってから可燃ごみへ。",
-  "缶": "中を洗って資源ごみへ。",
-  "ペットボトル": "ラベルとキャップを外して資源ごみへ。",
-  "紙": "汚れがなければ古紙回収へ。",
-  "不燃物": "市町村指定の不燃ごみへ。"
-};
-
-function updateHistory() {
-  const historyDiv = document.getElementById("history");
-  historyDiv.innerHTML = "";
-  historyData.slice().reverse().forEach((item, idx) => {
-    const card = document.createElement("div");
-    card.className = "history-card";
-    
-    const img = document.createElement("img");
-    img.src = item.imgSrc;
-    
-    const text = document.createElement("span");
-    text.innerText = item.label + " (" + Math.round(item.prob*100) + "%)";
-    
-    const btn = document.createElement("button");
-    btn.innerText = "修正";
-    btn.className = "fixBtn";
-    btn.onclick = () => {
-      const newLabel = prompt("正しいラベルを入力してください", item.label);
-      if(newLabel) {
-        item.label = newLabel;
-        localStorage.setItem('gomiHistory', JSON.stringify(historyData));
-        updateHistory();
-      }
-    };
-    
-    card.appendChild(img);
-    card.appendChild(text);
-    card.appendChild(btn);
-    
+function updateHistory(){
+  const historyDiv=document.getElementById("history");
+  historyDiv.innerHTML="";
+  historyData.slice().reverse().forEach((item)=>{
+    const card=document.createElement("div"); card.className="history-card";
+    const img=document.createElement("img"); img.src=item.imgSrc;
+    const text=document.createElement("span"); text.innerText=item.label+" ("+Math.round(item.prob*100)+"%)";
+    const btn=document.createElement("button"); btn.innerText="修正"; btn.className="fixBtn";
+    btn.onclick=()=>{ const newLabel=prompt("正しいラベルを入力してください",item.label); if(newLabel){item.label=newLabel; localStorage.setItem('gomiHistory',JSON.stringify(historyData)); updateHistory();} };
+    card.appendChild(img); card.appendChild(text); card.appendChild(btn);
     historyDiv.appendChild(card);
   });
 }
 
-async function init() {
-  try {
-    model = await tmImage.load(URL_PATH + "model.json", URL_PATH + "metadata.json");
-    document.getElementById("result").innerText = "準備完了！画像を選んでください。";
+async function init(){
+  try{
+    model=await tmImage.load(URL_PATH+"model.json",URL_PATH+"metadata.json");
+    document.getElementById("result").innerText="準備完了！画像を選んでください。";
     updateHistory();
-  } catch (error) {
-    document.getElementById("result").innerText = "モデル読み込み失敗";
+  }catch(error){
+    document.getElementById("result").innerText="モデル読み込み失敗";
     console.error(error);
   }
 }
 
 init();
 
-async function predict(img) {
-  const prediction = await model.predict(img);
+async function predict(img){
+  const prediction=await model.predict(img);
+  let highest=prediction[0];
+  for(let i=1;i<prediction.length;i++) if(prediction[i].probability>highest.probability) highest=prediction[i];
+  const confidence=highest.probability;
+  const bar=document.getElementById("confidenceBar");
+  const confText=document.getElementById("confidenceText");
+  if(confidence<0.6) bar.style.background="#ff7043";
+  else if(confidence<0.8) bar.style.background="#ffee58";
+  else bar.style.background="#26a69a";
 
-  let highest = prediction[0];
-  for (let i = 1; i < prediction.length; i++) {
-    if (prediction[i].probability > highest.probability) highest = prediction[i];
-  }
-
-  const confidence = highest.probability;
-
-  const bar = document.getElementById("confidenceBar");
-  const confText = document.getElementById("confidenceText");
-  if(confidence < 0.6) bar.style.background = "#ff7043";
-  else if(confidence < 0.8) bar.style.background = "#ffee58";
-  else bar.style.background = "#26a69a";
-
-  if(confidence < 0.6) {
-    document.getElementById("result").innerText = "⚠ 判定不明";
-    bar.style.width = "0%";
-    confText.innerText = "";
-    document.getElementById("advice").innerText = "もう一度撮影してください。";
+  if(confidence<0.6){
+    document.getElementById("result").innerText="⚠ 判定不明";
+    bar.style.width="0%"; confText.innerText="";
+    document.getElementById("advice").innerText="もう一度撮影してください。";
     return;
   }
 
-  document.getElementById("result").innerText = "分類: " + highest.className;
-  bar.style.width = (confidence*100) + "%";
-  confText.innerText = "信頼度: " + Math.round(confidence*100) + "%";
-  document.getElementById("advice").innerText = recycleTips[highest.className] || "";
+  document.getElementById("result").innerText="分類: "+highest.className;
+  bar.style.width=(confidence*100)+"%";
+  confText.innerText="信頼度: "+Math.round(confidence*100)+"%";
+  document.getElementById("advice").innerText=recycleTips[highest.className]||"";
 
-  // 履歴に保存
-  const newHistory = {
-    imgSrc: img.src,
-    label: highest.className,
-    prob: confidence
-  };
+  const newHistory={imgSrc:img.src,label:highest.className,prob:confidence};
   historyData.push(newHistory);
-  localStorage.setItem('gomiHistory', JSON.stringify(historyData));
+  localStorage.setItem('gomiHistory',JSON.stringify(historyData));
   updateHistory();
+
+  sendToCloud(img,highest.className,confidence);
 }
 
-document.getElementById("imageInput").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const img = document.getElementById("preview");
-  img.onload = () => predict(img);
-  img.src = URL.createObjectURL(file);
+async function sendToCloud(img,label,prob){
+  try{
+    const fileName='images/'+Date.now()+'.png';
+    const imgRef=ref(window.firebaseStorage,fileName);
+    await uploadString(imgRef,img.src,'data_url');
+    await addDoc(collection(window.firebaseDB,'predictions'),{label:label,confidence:prob,timestamp:new Date().toISOString(),imgPath:fileName});
+    console.log("クラウドに保存完了");
+  }catch(error){console.error("クラウド保存エラー",error);}
+}
+
+document.getElementById("imageInput").addEventListener("change",e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const img=document.getElementById("preview");
+  img.onload=()=>predict(img);
+  img.src=URL.createObjectURL(file);
 });
 
-async function toggleCamera() {
-  const video = document.getElementById("camera");
-  const button = document.getElementById("cameraBtn");
-
-  if(!cameraOn) {
-    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: cameraFacing}});
-    video.srcObject = stream;
-    button.innerText = "カメラOFF";
-    cameraOn = true;
-  } else {
-    stream.getTracks().forEach(track => track.stop());
-    video.srcObject = null;
-    button.innerText = "カメラON";
-    cameraOn = false;
-  }
+async function toggleCamera(){
+  const video=document.getElementById("camera"); const button=document.getElementById("cameraBtn");
+  if(!cameraOn){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:cameraFacing}}); video.srcObject=stream; button.innerText="カメラOFF"; cameraOn=true;}
+  else{ stream.getTracks().forEach(track=>track.stop()); video.srcObject=null; button.innerText="カメラON"; cameraOn=false;}
 }
 
-async function switchCamera() {
-  if(!cameraOn) return;
-  stream.getTracks().forEach(track => track.stop());
-  cameraFacing = cameraFacing === "user" ? "environment" : "user";
-  const video = document.getElementById("camera");
-  stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: cameraFacing}});
-  video.srcObject = stream;
+async function switchCamera(){
+  if(!cameraOn)return; stream.getTracks().forEach(track=>track.stop());
+  cameraFacing=cameraFacing==="user"?"environment":"user";
+  const video=document.getElementById("camera");
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:cameraFacing}});
+  video.srcObject=stream;
 }
 
-function takePhoto() {
-  if(!cameraOn) return;
-  const video = document.getElementById("camera");
-  const canvas = document.createElement("canvas");
-  canvas.width = 224;
-  canvas.height = 224;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, 224, 224);
-  const img = document.getElementById("preview");
-  img.src = canvas.toDataURL("image/png");
-  img.onload = () => predict(img);
+function takePhoto(){
+  if(!cameraOn)return;
+  const video=document.getElementById("camera");
+  const canvas=document.createElement("canvas"); canvas.width=224; canvas.height=224;
+  const ctx=canvas.getContext("2d"); ctx.drawImage(video,0,0,224,224);
+  const img=document.getElementById("preview"); img.src=canvas.toDataURL("image/png"); img.onload=()=>predict(img);
 }
 </script>
 

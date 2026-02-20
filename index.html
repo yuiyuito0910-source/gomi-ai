@@ -12,10 +12,9 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-firestore.js";
-  import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-storage.js";
+  import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-firestore.js";
+  import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-storage.js";
 
-  // Firebase 設定
   const firebaseConfig = {
     apiKey: "AIzaSyBPzh1PUGiT3ydeValzdoAjI1_-qnFbiRY",
     authDomain: "gomivisioncloud.firebaseapp.com",
@@ -62,6 +61,7 @@ button:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,0.3);}
 <button onclick="toggleCamera()" id="cameraBtn">カメラON</button>
 <button onclick="switchCamera()" id="switchBtn">カメラ切替</button>
 <button onclick="takePhoto()">撮影</button>
+<button onclick="retrainAndUpdateModel()">🔄 AI 再学習（自動更新）</button>
 
 <img id="preview">
 
@@ -92,7 +92,20 @@ function updateHistory(){
     const img=document.createElement("img"); img.src=item.imgSrc;
     const text=document.createElement("span"); text.innerText=item.label+" ("+Math.round(item.prob*100)+"%)";
     const btn=document.createElement("button"); btn.innerText="修正"; btn.className="fixBtn";
-    btn.onclick=()=>{ const newLabel=prompt("正しいラベルを入力してください",item.label); if(newLabel){item.label=newLabel; localStorage.setItem('gomiHistory',JSON.stringify(historyData)); updateHistory();} };
+    btn.onclick=async ()=>{
+      const newLabel=prompt("正しいラベルを入力してください",item.label);
+      if(newLabel){
+        item.label=newLabel;
+        localStorage.setItem('gomiHistory',JSON.stringify(historyData));
+        updateHistory();
+        // Firestore 更新
+        try{
+          const q = query(collection(window.firebaseDB,'predictions'), where('imgPath','==',item.imgSrc));
+          const snap = await getDocs(q);
+          snap.forEach(d => { updateDoc(d.ref, {correctedLabel:newLabel}); });
+        }catch(e){console.error("Firestore 更新エラー",e);}
+      }
+    };
     card.appendChild(img); card.appendChild(text); card.appendChild(btn);
     historyDiv.appendChild(card);
   });
@@ -180,7 +193,48 @@ function takePhoto(){
   const ctx=canvas.getContext("2d"); ctx.drawImage(video,0,0,224,224);
   const img=document.getElementById("preview"); img.src=canvas.toDataURL("image/png"); img.onload=()=>predict(img);
 }
-</script>
 
+// 🔄 自動再学習
+async function retrainAndUpdateModel(){
+  const statusDiv = document.getElementById("retrainStatus");
+  statusDiv.innerText = "自動再学習開始…少し時間がかかります";
+
+  try{
+    const q = query(collection(window.firebaseDB, "predictions"), where("confidence", ">=", 0.6));
+    const querySnapshot = await getDocs(q);
+    if(querySnapshot.empty){ statusDiv.innerText = "再学習用データが不足しています"; return; }
+
+    const images = []; const labels = [];
+    const classNames = model.getClassLabels();
+    const numClasses = classNames.length;
+
+    for(const docSnap of querySnapshot.docs){
+      const data = docSnap.data();
+      const labelName = data.correctedLabel || data.label;
+      const imgRef = ref(window.firebaseStorage, data.imgPath);
+      const url = await getDownloadURL(imgRef);
+      const img = new Image(); img.crossOrigin="anonymous"; img.src=url; await new Promise(res=>img.onload=res);
+      const tensor = tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255.0);
+      images.push(tensor); labels.push(tf.oneHot(classNames.indexOf(labelName), numClasses));
+    }
+
+    const xs = tf.stack(images); const ys = tf.stack(labels);
+
+    const newModel = tf.sequential();
+    for(let i=0;i<model.model.layers.length-1;i++) newModel.add(model.model.layers[i]);
+    newModel.add(tf.layers.dense({units:numClasses, activation:'softmax'}));
+    newModel.compile({optimizer:'adam', loss:'categoricalCrossentropy', metrics:['accuracy']});
+
+    await newModel.fit(xs, ys, {epochs:5, batchSize:8, shuffle:true});
+    statusDiv.innerText = "再学習完了！モデルをダウンロードしてください";
+
+    // ブラウザでダウンロード
+    await newModel.save('downloads://updated-model');
+
+    xs.dispose(); ys.dispose();
+
+  }catch(e){console.error(e); statusDiv.innerText = "再学習中にエラーが発生しました";}
+}
+</script>
 </body>
 </html>

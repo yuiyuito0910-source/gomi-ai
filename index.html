@@ -44,7 +44,7 @@ button {
   width: 90%;
   max-width: 360px;
   padding: 14px;
-  margin: 10px 0;
+  margin: 8px 0;
   border-radius: 12px;
   border: none;
   background: linear-gradient(45deg, #26a69a, #80cbc4);
@@ -87,10 +87,10 @@ button:hover {
   transition: width 0.6s ease, background 0.6s ease;
 }
 
-#result {
-  font-size: 20px;
+#confidenceText {
+  margin-top: 5px;
+  font-size: 14px;
   font-weight: bold;
-  margin-bottom: 8px;
 }
 
 #advice {
@@ -98,6 +98,40 @@ button:hover {
   color: #555;
   margin-top: 5px;
   min-height: 20px;
+}
+
+/* 判定履歴 */
+#history {
+  margin-top: 20px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-card {
+  background: #f1fdfd;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.history-card img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-right: 8px;
+}
+
+.fixBtn {
+  background: #ff8a65;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 </style>
 </head>
@@ -120,8 +154,12 @@ button:hover {
   <div class="progress">
     <div class="progress-bar" id="confidenceBar"></div>
   </div>
+  <div id="confidenceText"></div>
   <div id="advice"></div>
 </div>
+
+<h3>判定履歴</h3>
+<div id="history"></div>
 
 <script>
 const URL_PATH = "https://yuiyuito0910-source.github.io/gomi-ai/";
@@ -131,6 +169,8 @@ let cameraOn = false;
 let stream = null;
 let cameraFacing = "user";
 
+let historyData = JSON.parse(localStorage.getItem('gomiHistory') || "[]");
+
 const recycleTips = {
   "プラスチック": "洗ってから可燃ごみへ。",
   "缶": "中を洗って資源ごみへ。",
@@ -139,13 +179,44 @@ const recycleTips = {
   "不燃物": "市町村指定の不燃ごみへ。"
 };
 
+function updateHistory() {
+  const historyDiv = document.getElementById("history");
+  historyDiv.innerHTML = "";
+  historyData.slice().reverse().forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "history-card";
+    
+    const img = document.createElement("img");
+    img.src = item.imgSrc;
+    
+    const text = document.createElement("span");
+    text.innerText = item.label + " (" + Math.round(item.prob*100) + "%)";
+    
+    const btn = document.createElement("button");
+    btn.innerText = "修正";
+    btn.className = "fixBtn";
+    btn.onclick = () => {
+      const newLabel = prompt("正しいラベルを入力してください", item.label);
+      if(newLabel) {
+        item.label = newLabel;
+        localStorage.setItem('gomiHistory', JSON.stringify(historyData));
+        updateHistory();
+      }
+    };
+    
+    card.appendChild(img);
+    card.appendChild(text);
+    card.appendChild(btn);
+    
+    historyDiv.appendChild(card);
+  });
+}
+
 async function init() {
   try {
-    model = await tmImage.load(
-      URL_PATH + "model.json",
-      URL_PATH + "metadata.json"
-    );
+    model = await tmImage.load(URL_PATH + "model.json", URL_PATH + "metadata.json");
     document.getElementById("result").innerText = "準備完了！画像を選んでください。";
+    updateHistory();
   } catch (error) {
     document.getElementById("result").innerText = "モデル読み込み失敗";
     console.error(error);
@@ -159,37 +230,46 @@ async function predict(img) {
 
   let highest = prediction[0];
   for (let i = 1; i < prediction.length; i++) {
-    if (prediction[i].probability > highest.probability) {
-      highest = prediction[i];
-    }
+    if (prediction[i].probability > highest.probability) highest = prediction[i];
   }
 
   const confidence = highest.probability;
 
   const bar = document.getElementById("confidenceBar");
-  if(confidence < 0.6) bar.style.background = "#ff7043"; // 赤っぽく
-  else if(confidence < 0.8) bar.style.background = "#ffee58"; // 黄色
-  else bar.style.background = "#26a69a"; // 緑
+  const confText = document.getElementById("confidenceText");
+  if(confidence < 0.6) bar.style.background = "#ff7043";
+  else if(confidence < 0.8) bar.style.background = "#ffee58";
+  else bar.style.background = "#26a69a";
 
-  if (confidence < 0.6) {
+  if(confidence < 0.6) {
     document.getElementById("result").innerText = "⚠ 判定不明";
     bar.style.width = "0%";
+    confText.innerText = "";
     document.getElementById("advice").innerText = "もう一度撮影してください。";
     return;
   }
 
   document.getElementById("result").innerText = "分類: " + highest.className;
-  bar.style.width = (confidence * 100) + "%";
-  document.getElementById("advice").innerText =
-    recycleTips[highest.className] || "";
+  bar.style.width = (confidence*100) + "%";
+  confText.innerText = "信頼度: " + Math.round(confidence*100) + "%";
+  document.getElementById("advice").innerText = recycleTips[highest.className] || "";
+
+  // 履歴に保存
+  const newHistory = {
+    imgSrc: img.src,
+    label: highest.className,
+    prob: confidence
+  };
+  historyData.push(newHistory);
+  localStorage.setItem('gomiHistory', JSON.stringify(historyData));
+  updateHistory();
 }
 
-document.getElementById("imageInput").addEventListener("change", (e) => {
+document.getElementById("imageInput").addEventListener("change", e => {
   const file = e.target.files[0];
-  if (!file) return;
-
+  if(!file) return;
   const img = document.getElementById("preview");
-  img.onload = function() { predict(img); };
+  img.onload = () => predict(img);
   img.src = URL.createObjectURL(file);
 });
 
@@ -197,8 +277,8 @@ async function toggleCamera() {
   const video = document.getElementById("camera");
   const button = document.getElementById("cameraBtn");
 
-  if (!cameraOn) {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing } });
+  if(!cameraOn) {
+    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: cameraFacing}});
     video.srcObject = stream;
     button.innerText = "カメラOFF";
     cameraOn = true;
@@ -211,27 +291,25 @@ async function toggleCamera() {
 }
 
 async function switchCamera() {
-  if (!cameraOn) return;
+  if(!cameraOn) return;
   stream.getTracks().forEach(track => track.stop());
   cameraFacing = cameraFacing === "user" ? "environment" : "user";
   const video = document.getElementById("camera");
-  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing } });
+  stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: cameraFacing}});
   video.srcObject = stream;
 }
 
 function takePhoto() {
-  if (!cameraOn) return;
-
+  if(!cameraOn) return;
   const video = document.getElementById("camera");
   const canvas = document.createElement("canvas");
   canvas.width = 224;
   canvas.height = 224;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, 224, 224);
-
   const img = document.getElementById("preview");
   img.src = canvas.toDataURL("image/png");
-  img.onload = function() { predict(img); };
+  img.onload = () => predict(img);
 }
 </script>
 

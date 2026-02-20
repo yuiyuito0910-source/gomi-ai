@@ -11,26 +11,22 @@
 
 <!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-firestore.js";
-  import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-storage.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-app.js";
+import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.6.1/firebase-storage.js";
 
-  // Firebase 設定
-  const firebaseConfig = {
-    apiKey: "AIzaSyBPzh1PUGiT3ydeValzdoAjI1_-qnFbiRY",
-    authDomain: "gomivisioncloud.firebaseapp.com",
-    projectId: "gomivisioncloud",
-    storageBucket: "gomivisioncloud.firebasestorage.app",
-    messagingSenderId: "1031788205291",
-    appId: "1:1031788205291:web:1205b1ebfb10f2e5365aae"
-  };
+// Firebase 設定
+const firebaseConfig = {
+  apiKey: "AIzaSyBPzh1PUGiT3ydeValzdoAjI1_-qnFbiRY",
+  authDomain: "gomivisioncloud.firebaseapp.com",
+  projectId: "gomivisioncloud",
+  storageBucket: "gomivisioncloud.firebasestorage.app",
+  messagingSenderId: "1031788205291",
+  appId: "1:1031788205291:web:1205b1ebfb10f2e5365aae"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const storage = getStorage(app);
-
-  window.firebaseDB = db;
-  window.firebaseStorage = storage;
+const app = initializeApp(firebaseConfig);
+const storage = getStorage(app);
+window.firebaseStorage = storage;
 </script>
 
 <style>
@@ -57,19 +53,15 @@ button:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,0.3);}
 <div class="subtitle">撮るだけで分別できるAI</div>
 
 <input type="file" id="imageInput" accept="image/*"><br>
-
 <video id="camera" autoplay playsinline></video><br>
 <button onclick="toggleCamera()" id="cameraBtn">カメラON</button>
 <button onclick="switchCamera()" id="switchBtn">カメラ切替</button>
 <button onclick="takePhoto()">撮影</button>
 
 <img id="preview">
-
 <div class="result-box">
   <div id="result">モデル読み込み中...</div>
-  <div class="progress">
-    <div class="progress-bar" id="confidenceBar"></div>
-  </div>
+  <div class="progress"><div class="progress-bar" id="confidenceBar"></div></div>
   <div id="confidenceText"></div>
   <div id="advice"></div>
 </div>
@@ -108,7 +100,6 @@ async function init(){
     console.error(error);
   }
 }
-
 init();
 
 async function predict(img){
@@ -130,8 +121,7 @@ async function predict(img){
   }
 
   document.getElementById("result").innerText="分類: "+highest.className;
-  bar.style.width=(confidence*100)+"%";
-  confText.innerText="信頼度: "+Math.round(confidence*100)+"%";
+  bar.style.width=(confidence*100)+"%"; confText.innerText="信頼度: "+Math.round(confidence*100)+"%";
   document.getElementById("advice").innerText=recycleTips[highest.className]||"";
 
   const newHistory={imgSrc:img.src,label:highest.className,prob:confidence};
@@ -139,20 +129,24 @@ async function predict(img){
   localStorage.setItem('gomiHistory',JSON.stringify(historyData));
   updateHistory();
 
-  sendToCloud(img,highest.className,confidence);
+  // Storageに保存
+  sendToCloud(img, highest.className);
 }
 
-async function sendToCloud(img,label,prob){
-  try{
-    const fileName='images/'+Date.now()+'.png';
-    const imgRef=ref(window.firebaseStorage,fileName);
-    await uploadString(imgRef,img.src,'data_url');
-    await addDoc(collection(window.firebaseDB,'predictions'),{label:label,confidence:prob,timestamp:new Date().toISOString(),imgPath:fileName});
-    console.log("クラウドに保存完了");
-  }catch(error){console.error("クラウド保存エラー",error);}
+async function sendToCloud(img, label) {
+  try {
+    const timestamp = Date.now();
+    const folder = 'training-data/' + label;  // ラベルごとにフォルダ分け
+    const fileName = `${folder}/${timestamp}.png`;
+    const imgRef = ref(window.firebaseStorage, fileName);
+    await uploadString(imgRef, img.src, 'data_url');  // Storageに保存
+    console.log(`クラウド保存完了: ${fileName}`);
+  } catch (error) {
+    console.error("クラウド保存エラー", error);
+  }
 }
 
-document.getElementById("imageInput").addEventListener("change",e=>{
+document.getElementById("imageInput").addEventListener("change", e=>{
   const file=e.target.files[0]; if(!file)return;
   const img=document.getElementById("preview");
   img.onload=()=>predict(img);
@@ -161,8 +155,13 @@ document.getElementById("imageInput").addEventListener("change",e=>{
 
 async function toggleCamera(){
   const video=document.getElementById("camera"); const button=document.getElementById("cameraBtn");
-  if(!cameraOn){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:cameraFacing}}); video.srcObject=stream; button.innerText="カメラOFF"; cameraOn=true;}
-  else{ stream.getTracks().forEach(track=>track.stop()); video.srcObject=null; button.innerText="カメラON"; cameraOn=false;}
+  if(!cameraOn){
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:cameraFacing}});
+    video.srcObject=stream; button.innerText="カメラOFF"; cameraOn=true;
+  } else {
+    stream.getTracks().forEach(track=>track.stop());
+    video.srcObject=null; button.innerText="カメラON"; cameraOn=false;
+  }
 }
 
 async function switchCamera(){
@@ -181,6 +180,5 @@ function takePhoto(){
   const img=document.getElementById("preview"); img.src=canvas.toDataURL("image/png"); img.onload=()=>predict(img);
 }
 </script>
-
 </body>
 </html>
